@@ -1,0 +1,9 @@
+TOPTARGETS := all clean install
+
+SUBDIRS := hal pasm
+
+$(TOPTARGETS): $(SUBDIRS)
+$(SUBDIRS):
+	$(MAKE) -C $@ $(MAKECMDGOALS)
+
+.PHONY: $(TOPTARGETS) $(SUBDIRS)
