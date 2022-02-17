@@ -85,52 +85,50 @@
 // r31  Direct Inputs / Event Generation
 
 // Leave r30 available for use as direct I/O
-.setcallreg r24.w2
+// TODO .setcallreg r24.w2
 
 #define STATE_SIZE  9
 #define NUMCHAN     3
 
-.struct global_state
-    .u32    Scratch0
-    .u32    Scratch1
-    .u32    Scratch2
-    .u32    Scratch3
-    .u32    State_Reg0
-    .u32    State_Reg1
-    .u32    State_Reg2
-    .u32    State_Reg3
-    .u32    State_Reg4
-    .u32    State_Reg5
-    .u32    State_Reg6
-    .u32    State_Reg7
-    .u32    Task_Status
-    .u32    Task_Addr
-    .u32    GPIO0_Clr
-    .u32    GPIO0_Set
-    .u32    GPIO1_Clr
-    .u32    GPIO1_Set
-    .u32    GPIO2_Clr
-    .u32    GPIO2_Set
-    .u32    GPIO3_Clr
-    .u32    GPIO3_Set
-    .u32    PRU_Out
-    .u16    TaskTable
-    .u16    PinTable
-    .u32    Call_Reg
-    .u32    Mul_Status
-    .u32    Mul_Prod_L
-    .u32    Mul_Prod_H
-    .u32    Mul_Op1
-    .u32    Mul_Op2
-.ends
+global_state .struct 
+Scratch0    .int
+Scratch1    .int
+Scratch2    .int
+Scratch3    .int
+State_Reg0  .int
+State_Reg1  .int
+State_Reg2  .int
+State_Reg3  .int
+State_Reg4  .int
+State_Reg5  .int
+State_Reg6  .int
+State_Reg7  .int
+Task_Status .int
+Task_Addr   .int
+GPIO0_Clr   .int
+GPIO0_Set   .int
+GPIO1_Clr   .int
+GPIO1_Set   .int
+GPIO2_Clr   .int
+GPIO2_Set   .int
+GPIO3_Clr   .int
+GPIO3_Set   .int
+PRU_Out     .int
+TaskTable   .int
+PinTable    .int
+Call_Reg    .int
+Mul_Status  .int
+Mul_Prod_L  .int
+Mul_Prod_H  .int
+Mul_Op1     .int
+Mul_Op2     .int
+global_state_size .endstruct
 
-.assign global_state, r0, r29, GState
-
+GState .sassign r0, global_state
+    
 // Overlay task header onto proper GState registers
-.assign task_header, r12, r13, GTask
+GTask .sassign r12, task_header
 
-.origin 0
-.entrypoint START
 
 // PRU GPIO Write Timing Details
 // The actual write instruction to a GPIO pin using SBBO takes two 
@@ -162,8 +160,10 @@
 // Latency from the physical I/O pin to the PRU read seeing valid data
 // has not yet been measured.
 
+    .text
+_c_int00:
 START:
-    FILL    &GState, SIZE(GState)
+    FILL    &r0, global_state_size
 
     // Clear syscfg[standby_init] to enable ocp master port
     LBCO    r0, CONST_PRUCFG, 4, 4
