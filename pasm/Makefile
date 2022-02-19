@@ -1,19 +1,59 @@
+ifndef PRU_CGT
+define ERROR_BODY
+
+*******************************************************************************
+PRU_CGT environment variable is not set. For example:
+(Desktop Linux) export PRU_CGT=/path/to/pru/code/gen/tools/ti-cgt-pru_2.3.3
+(Windows) set PRU_CGT=C:/path/to/pru/code/gen/tools/ti-cgt-pru_2.3.3
+(ARM Linux*) export PRU_CGT=/usr/share/ti/cgt-pru
+
+*ARM Linux also needs to create a symbolic link to the /usr/bin/ directory in
+order to use the same Makefile
+(ARM Linux) ln -s /usr/bin/ /usr/share/ti/cgt-pru/bin
+
+The latest PRU CGT can be found at https://www.ti.com/tool/PRU-CGT or in Code
+Composer Studio (CCS) App Center.
+*******************************************************************************
+
+endef
+$(error $(ERROR_BODY))
+endif
+
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+CURRENT_DIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE_PATH))))
+PROJ_NAME=$(CURRENT_DIR)
+LINKER_COMMAND_FILE=./AM335x_PRU.cmd
+
+CGT_CFLAGS=-v3 -O2 --display_error_number --endian=little --hardware_mac=on -ppd -ppa
+CGT_LFLAGS=--reread_libs --warn_sections 
+
+TARGET=$(GEN_DIR)/$(PROJ_NAME).out
+MAP=$(GEN_DIR)/$(PROJ_NAME).map
+SOURCES=$(wildcard *.asm)
+# OBJECTS=$(patsubst %,$(GEN_DIR)/%,$(SOURCES:.c=.object))
+OBJECTS=pru_generic.obj pru_stepphase.obj
+
 ECHO = @echo
-PASM = pasm
-PASM_BINFLAGS := -b -L -d -V2
 INSTALL = install
-DESTDIR = /usr/local/lib/linuxcnc/modules
+DESTDIR = /lib/firmware
+CC = gcc
+CCOPTS = -E
+SED = sed
 
 PRU_SRCS := $(wildcard *.p)
 
-all: pru_generic.bin
+all: pru_tasks.inc $(OBJECTS)
 
-install: pru_generic.bin
+install: 
 	$(INSTALL) -m 0644 -o root -g root -t $(DESTDIR) $<
 
-pru_generic.bin:
-	$(ECHO) Assembling PRU code $@
-	$(PASM) $(PASM_BINFLAGS) pru_generic.p $(basename $@)
+%.obj: %.asm
+	@echo 'Invoking: PRU Compiler'
+	$(PRU_CGT)/bin/clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CGT_CFLAGS) -al -fe $@ $<
+
+pru_tasks.inc: pru_tasks.h
+	$(ECHO) Create tasks include file $@
+	$(CC) $(CCOPTS) pru_tasks.h | $(SED) -e "s/^#/;/g" -e "s/^\s\+//g" > $@
 
 clean:
-	rm -f pru_generic.bin pru_generic.dbg pru_generic.txt
+	rm -f *.obj *.lst

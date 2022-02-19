@@ -60,14 +60,17 @@
 // Basic types used elsewhere
 //
 
-#define PRU_DATA_START 0
-
 #ifndef _hal_pru_generic_H_
 // pru_addr_t
+
+PRU_DATA_START: .set 0
     
 // pru_task_mode_t
 
 #else
+
+#define PRU_DATA_START 0
+
     typedef rtapi_u32 pru_addr_t;
 
     // Insure these values match the JUMPTABLE in the pru assembly code!
@@ -91,13 +94,16 @@
 //
 
 #ifndef _hal_pru_generic_H_
-task_header .struct 
-mode    .byte
-len     .byte
-dataX   .byte
-dataY   .byte
-addr    .int
-    .endstruct
+    task_status .struct
+        mode    .byte
+        len     .byte
+        dataX   .byte
+        dataY   .byte
+    task_status_size .endstruct
+    task_header .struct 
+        status  .tag task_status
+        addr    .int
+    task_header_size .endstruct
 #else
     typedef struct {
         rtapi_u8      mode;
@@ -124,14 +130,14 @@ addr    .int
 //
 
 #ifndef _hal_pru_generic_H_
-pru_statics .struct 
-mode    .byte
-len     .byte
-dataX   .byte
-dataY   .byte
-addr    .int
-period  .int
-    .endstruct
+    pru_statics .struct 
+        mode    .byte
+        len     .byte
+        dataX   .byte
+        dataY   .byte
+        addr    .int
+        period  .int
+    pru_statics_size .endstruct
 #else
     typedef struct {
         PRU_task_header_t task;
@@ -150,36 +156,44 @@ period  .int
 //
 
 #ifndef _hal_pru_generic_H_
-stepdir_state .struct
-Rate            .int
-Dly_step_len    .short
-Dly_dir_hold    .short
-Dly_step_space  .short
-Dly_dir_setup   .short
-Accum           .int
-Pos             .int
-T_Pulse         .short
-T_Dir           .short  
-StepQ           .byte
-RateQ           .byte
-Reserved1       .byte
-StepInvert      .byte
-    .endstruct
+    stepdir_state .struct
+        Rate            .int
+        Dly_step_len    .short
+        Dly_dir_hold    .short
+        Dly_step_space  .short
+        Dly_dir_setup   .short
+        Accum           .int
+        Pos             .int
+        T_Pulse         .short
+        T_Dir           .short  
+        StepQ           .byte
+        RateQ           .byte
+        Reserved1       .byte
+        StepInvert      .byte
+    stepdir_state_size .endstruct
+    
+        
+    phasegen_misc .struct
+        PinC            .byte
+        PinD            .byte
+        Reserved1       .byte
+        RateQ           .byte
+    phasegen_misc_size .endstruct
+    
+    phasegen_times .struct
+        Pulse           .short
+        Dir             .short
+    phasegen_times_size .endstruct
 
-phasegen_state .struct
-Rate            .int
-Dly_step_len    .short
-Dly_dir_setup   .short
-PinC            .byte
-PinD            .byte
-Reserved1       .byte
-RateQ           .byte
-Accum           .int
-Pos             .int
-T_Pulse         .short
-T_Dir           .short
-Lut             .int
-    .endstruct
+    phasegen_state .struct
+        Rate            .int
+        Delays          .int ; really a struct of two short, steplen and dirhold, but not accessed as different parts
+        Misc            .tag phasegen_misc
+        Accum           .int
+        Pos             .int
+        T               .tag phasegen_times
+        Lut             .int
+    phasegen_state_size .endstruct
 #else
     typedef struct  {
         PRU_task_header_t task;
@@ -217,22 +231,22 @@ Lut             .int
 //
 
 #ifndef _hal_pru_generic_H_
-delta_index .struct
-Offset      .short
-Reserved    .short
-    .endstruct
+    delta_index .struct
+        Offset      .short
+        Reserved    .short
+    delta_index_size .endstruct
 
-delta_output .struct
-Value       .short           // WARNING: Range is 14-bits: 0x0000 to 0x4000 inclusive!
-Pin         .byte
-Reserved    .byte
-Integrate   .short
-Quantize    .short
-    .endstruct
+    delta_output .struct
+        Value       .short           // WARNING: Range is 14-bits: 0x0000 to 0x4000 inclusive!
+        Pin         .byte
+        Reserved    .byte
+        Integrate   .short
+        Quantize    .short
+    delta_output_size .endstruct
 
-delta_state .struct 
-Reserved    .int
-    .endstruct
+    delta_state .struct 
+        Reserved    .int
+    delta_state_size .endstruct
 #else
     typedef struct {
         rtapi_u16     value;          // WARNING: Range is 14-bits: 0x0000 to 0x4000 inclusive!
@@ -254,23 +268,23 @@ Reserved    .int
 //
 
 #ifndef _hal_pru_generic_H_
-pwm_index .struct
-Offset      .short
-Reserved    .short
-    .endstruct
+    pwm_index .struct
+        Offset      .short
+        Reserved    .short
+    pwm_index_size .endstruct
 
-pwm_output .struct 
-Value       .short
-Pin         .byte
-Reserved    .byte
-    .endstruct
+    pwm_output .struct 
+        Value       .short
+        Pin         .byte
+        Reserved    .byte
+    pwm_output_size .endstruct
 
-pwm_state .struct 
-Prescale    .short
-Period      .short
-T_Prescale  .short
-T_Period    .short
-    .endstruct
+    pwm_state .struct 
+        Prescale    .short
+        Period      .short
+        T_Prescale  .short
+        T_Period    .short
+    pwm_state_size .endstruct
 #else
     typedef struct {
         rtapi_u16     value;
@@ -293,32 +307,32 @@ T_Period    .short
 //
 
 #ifndef _hal_pru_generic_H_
-encoder_index .struct 
-wraddr      .int          // Task address + sizeof(read-only objects in encoder_chan)
-Offset      .short
-Reserved    .short
-    .endstruct
+    encoder_index .struct 
+        wraddr      .int          // Task address + sizeof(read-only objects in encoder_chan)
+        Offset      .short
+        Reserved    .short
+    encoder_index_size .endstruct
 
-encoder_chan .struct 
-A_pin       .byte
-B_pin       .byte
-Z_pin       .byte           // Index
-mode        .byte
+    encoder_chan .struct 
+        A_pin       .byte
+        B_pin       .byte
+        Z_pin       .byte           // Index
+        mode        .byte
 
-AB_State    .byte
-AB_scratch  .byte
-count       .short
+        AB_State    .byte
+        AB_scratch  .byte
+        count       .short
 
-Z_capture   .short
-Z_count     .byte         // Used by driver to compute "index seen"
-Z_State     .byte
+        Z_capture   .short
+        Z_count     .byte         // Used by driver to compute "index seen"
+        Z_State     .byte
 
-    .endstruct
+    encoder_chan_size .endstruct
 
-encoder_state .struct 
-pins    .int            // XOR mask to invert all input pins in one instruction
-LUT     .int            // Base address of LUT for counter modes
-    .endstruct
+    encoder_state .struct 
+        pins    .int            // XOR mask to invert all input pins in one instruction
+        LUT     .int            // Base address of LUT for counter modes
+    encoder_state_size .endstruct
 #else
     typedef struct {
         rtapi_u8      A_pin;
