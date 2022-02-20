@@ -27,11 +27,10 @@ LINKER_COMMAND_FILE=./AM335x_PRU.cmd
 CGT_CFLAGS=-v3 -O2 --display_error_number --endian=little --hardware_mac=on -ppd -ppa
 CGT_LFLAGS=--reread_libs --warn_sections 
 
-TARGET=$(GEN_DIR)/$(PROJ_NAME).out
-MAP=$(GEN_DIR)/$(PROJ_NAME).map
+TARGET=pru_generic-pru1.out
+MAP=pru_generic-pru1.map
 SOURCES=$(wildcard *.asm)
-# OBJECTS=$(patsubst %,$(GEN_DIR)/%,$(SOURCES:.c=.object))
-OBJECTS=pru_generic.obj pru_stepphase.obj
+OBJECTS=pru_generic.obj pru_stepphase.obj pru_wait.obj pru_stepdir.obj pru_deltasigma.obj pru_pwm.obj pru_encoder.obj
 
 ECHO = @echo
 INSTALL = install
@@ -42,7 +41,7 @@ SED = sed
 
 PRU_SRCS := $(wildcard *.p)
 
-all: pru_tasks.inc $(OBJECTS)
+all: pru_tasks.inc $(OBJECTS) $(TARGET)
 
 install: 
 	$(INSTALL) -m 0644 -o root -g root -t $(DESTDIR) $<
@@ -51,9 +50,15 @@ install:
 	@echo 'Invoking: PRU Compiler'
 	$(PRU_CGT)/bin/clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CGT_CFLAGS) -al -fe $@ $<
 
+$(TARGET): $(OBJECTS) $(LINKER_COMMAND_FILE)
+	@echo ''
+	@echo 'Building target: $@'
+	$(PRU_CGT)/bin/clpru $(CGT_CFLAGS) -z -i$(PRU_CGT)/lib -i$(PRU_CGT)/include $(CGT_LFLAGS) -o $(TARGET) $(OBJECTS) -m$(MAP) $(LINKER_COMMAND_FILE)
+	@echo 'Finished building target: $@'
+
 pru_tasks.inc: pru_tasks.h
 	$(ECHO) Create tasks include file $@
-	$(CC) $(CCOPTS) pru_tasks.h | $(SED) -e "s/^#/;/g" -e "s/^\s\+//g" > $@
+	$(CC) $(CCOPTS) pru_tasks.h | $(SED) -e "s/^#/;/g" -e "s/^\s\+\([a-zA-Z]\)/\1/g" > $@
 
 clean:
-	rm -f *.obj *.lst
+	rm -f *.obj *.lst *.abs *.out

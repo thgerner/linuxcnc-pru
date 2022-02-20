@@ -49,7 +49,6 @@
 
 
 ;// Leave r30 available for use as direct I/O
-;// TODO .setcallreg r24.w2
 
     .cdecls C,NOLIST
     %{
@@ -122,7 +121,7 @@ START:
     LDI     r30, 0
 
     ; Setup IEP timer
-    LBCO    &r6, __PRU_CREG_PRU_IEP, 0x40, 40                 ; Read all 10 32-bit CMP registers into r6-r15
+    LBCO    &r6, __PRU_CREG_PRU_IEP, 0x40, 40       ; Read all 10 32-bit CMP registers into r6-r15
     OR      r6, r6, 0x03                            ; Set count reset and enable compare 0 event
 
     ; Use Task_Addr to point to static variables during init
@@ -133,13 +132,13 @@ START:
 
     SBCO    &r6, __PRU_CREG_PRU_IEP, 0x40, 40                 ; Save 10 32-bit CMP registers
 
-    LDI     r2, 0x00000551                          ; Enable counter, configured to count nS (increments by 5 each clock)
+    LDI     r2, 0x00000551                                    ; Enable counter, configured to count nS (increments by 5 each clock)
     SBCO    &r2, __PRU_CREG_PRU_IEP, 0x00, 4                  ; Save IEP GLOBAL_CFG register
 
     ; Setup registers
 
     ; Zero all output registers
-    ZERO    &GState.GPIO0_Clr, global_state.Table.Task - global_state.GPIO0_Clr
+    ZERO    &GState.GPIO0_Clr, global_state.TaskTable - global_state.GPIO0_Clr
 
     ; Setup Scratch-Pad 0 with GPIO addresses
     LDI32   GState.State_Reg0, GPIO0 + GPIO_CLEARDATAOUT
@@ -149,8 +148,8 @@ START:
     XOUT    10, &GState.State_Reg0, 16
     ZERO    &GState.State_Reg0, 16
 
-    LDI     GState.Table.Task, TASKTABLE                ; Base address of jump tables
-    LDI     GState.Table.Pin, PINTABLE
+    LDI     GState.TaskTable, TASKTABLE                ; Base address of jump tables
+    LDI     GState.PinTable, PINTABLE
 
     ; Load start of task list from static variables
     LBBO    &GState.Task_Addr, GState.Task_Addr, pru_statics.addr - pru_statics.mode, $sizeof(pru_statics.addr)
@@ -187,13 +186,13 @@ NEXT_TASK:
     ; ...and keep going!
 MAINLOOP:
     ; Read task details (Mode, Len, DataX, DataY)
-    LBBO    &GState.Task_Status, GTask.addr, task_header.status.mode - pru_statics.mode, $sizeof(GState.Task_Status)
+    LBBO    &GState.Task_Status, GTask.addr, task_header.mode - pru_statics.mode, $sizeof(GState.Task_Status)
 
     ; Make sure mode is valid or we could fall off the end of the jump table!
-    QBLT    NEXT_TASK, GTask.status.mode, TASKTABLEEND - TASKTABLE
+    QBLT    NEXT_TASK, GTask.mode, TASKTABLEEND - TASKTABLE
 
     ; Index into the jump table and call the routine appropriate for our mode
-    ADD     r1, GState.Table.Task, GTask.status.mode
+    ADD     r1, GState.TaskTable, GTask.mode
     JMP     r1
 
     .def SET_CLR_BIT
@@ -210,7 +209,7 @@ SET_CLR_BIT:
     LSR     r3.b3, r3.b1, 5
     LSR     r3.b0, r3.w2, 6
     
-    ADD     r3.w2, GState.Table.Pin, r3.b0
+    ADD     r3.w2, GState.PinTable, r3.b0
     JMP     r3.w2
 
 PINTABLE:

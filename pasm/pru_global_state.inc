@@ -36,41 +36,41 @@
 ;// r30  Direct Outputs
 ;// r31  Direct Inputs / Event Generation
 
-state_table .struct
-Task    .short
-Pin     .short
-state_table_size .endstruct
+addr_table .struct
+TaskTable      .short
+PinTable       .short
+           .endstruct
 
 global_state .struct
-Scratch0 .int       ; r0
-Scratch1 .int       ; r1
-Scratch2 .int       ; r2
-Scratch3 .int       ; r3
-State_Reg0 .int     ; r4
-State_Reg1 .int     ; r5
-State_Reg2 .int     ; r6
-State_Reg3 .int     ; r7
-State_Reg4 .int     ; r8
-State_Reg5 .int     ; r9
-State_Reg6 .int     ; r10
-State_Reg7 .int     ; r11
-Task_Status .int    ; r12
-Task_Addr .int      ; r13
-GPIO0_Clr .int      ; r14
-GPIO0_Set .int      ; r15
-GPIO1_Clr .int      ; r16
-GPIO1_Set .int      ; r17
-GPIO2_Clr .int      ; r18
-GPIO2_Set .int      ; r19
-GPIO3_Clr .int      ; r20
-GPIO3_Set .int      ; r21
-PRU_Out .int        ; r22
-Table .tag state_table      ; r23
-Call_Reg .int       ; r24
-Mul_Status .int     ; r25
-Mul_Prod_L .int     ; r26
-Mul_Prod_H .int     ; r27
-Mul_Op1 .int        ; r28
-Mul_Op2 .int        ; r29
+Scratch0 .int           ; r0
+Scratch1 .int           ; r1
+Scratch2 .int           ; r2
+Scratch3 .int           ; r3
+State_Reg0 .int         ; r4
+State_Reg1 .int         ; r5
+State_Reg2 .int         ; r6
+State_Reg3 .int         ; r7
+State_Reg4 .int         ; r8
+State_Reg5 .int         ; r9
+State_Reg6 .int         ; r10
+State_Reg7 .int         ; r11
+Task_Status .int        ; r12
+Task_Addr .int          ; r13
+GPIO0_Clr .int          ; r14
+GPIO0_Set .int          ; r15
+GPIO1_Clr .int          ; r16
+GPIO1_Set .int          ; r17
+GPIO2_Clr .int          ; r18
+GPIO2_Set .int          ; r19
+GPIO3_Clr .int          ; r20
+GPIO3_Set .int          ; r21
+PRU_Out .int            ; r22
+      .tag addr_table  ; r23
+Call_Reg .int           ; r24
+Mul_Status .int         ; r25
+Mul_Prod_L .int         ; r26
+Mul_Prod_H .int         ; r27
+Mul_Op1 .int            ; r28
+Mul_Op2 .int            ; r29
 global_state_size .endstruct
 

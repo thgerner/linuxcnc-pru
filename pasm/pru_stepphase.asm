@@ -65,7 +65,7 @@ GTask .sassign r12, task_header
     .def MODE_STEP_PHASE
 MODE_STEP_PHASE:
     ;  Read in task state data
-    LBBO &PhState, GTask.addr, task_header_size, phasegen_state_size
+    LBBO &PhState, GTask.addr, $sizeof(task_header), $sizeof(phasegen_state)
 
     ;  Accumulator MSBs are used for state/status encoding:
     ;  t28 = Guard bit (protects higher status bits from accumulator wrapping)
@@ -77,25 +77,25 @@ MODE_STEP_PHASE:
 SPH_ACC_HOLD:
 
     ;  Decrement pulse timeout if non zero
-    QBEQ    SPH_SKIP_PULSE_SUB, PhState.T.Pulse, 0
-    SUB     PhState.T.Pulse, PhState.T.Pulse, 1
+    QBEQ    SPH_SKIP_PULSE_SUB, PhState.T_Pulse, 0
+    SUB     PhState.T_Pulse, PhState.T_Pulse, 1
 
 SPH_SKIP_PULSE_SUB:
 
     ;  Decrement Direction timer if non-zero
-    QBEQ    SPH_DIR_SKIP_SUB, PhState.T.Dir, 0
-    SUB     PhState.T.Dir, PhState.T.Dir, 1
+    QBEQ    SPH_DIR_SKIP_SUB, PhState.T_Dir, 0
+    SUB     PhState.T_Dir, PhState.T_Dir, 1
 
 SPH_DIR_SKIP_SUB:
 
 	;  do nothing as long as T_Pulse is non zero
-	QBNE    PHASE_DONE, PhState.T.Pulse, 0
+	QBNE    PHASE_DONE, PhState.T_Pulse, 0
 
 	;  check if direction change
-    XOR     r1.b0, (PhState.Rate).b3, PhState.Misc.RateQ
+    XOR     r1.b0, (PhState.Rate).b3, PhState.RateQ
     QBBC	SPH_NO_DIR_CHANGE, r1.b0, 7
-    QBNE	PHASE_DONE, PhState.T.Dir, 0
-    MOV     PhState.Misc.RateQ, (PhState.Rate).b3
+    QBNE	PHASE_DONE, PhState.T_Dir, 0
+    MOV     PhState.RateQ, (PhState.Rate).b3
 
 SPH_NO_DIR_CHANGE:
 
@@ -118,31 +118,31 @@ SPH_DIR_UP:
 	LSR     r2, PhState.Lut, r3.b0
 
 	;  Phase pin A
-	MOV     r3.b1, GTask.status.dataX
+	MOV     r3.b1, GTask.dataX
 	MOV     r3.b0, r2.b0
 	JAL     (GState.Call_Reg).w2, SET_CLR_BIT
 
 	;  Phase pin B
-	MOV     r3.b1, GTask.status.dataY
+	MOV     r3.b1, GTask.dataY
 	LSR     r3.b0, r2.b0, 1
 	JAL     (GState.Call_Reg).w2, SET_CLR_BIT
 
 	;  Phase pin C
-	MOV     r3.b1, PhState.Misc.PinC
+	MOV     r3.b1, PhState.PinC
 	LSR     r3.b0, r2.b0, 2
 	JAL     (GState.Call_Reg).w2, SET_CLR_BIT
 
 	;  Phase pin D
-	MOV     r3.b1, PhState.Misc.PinD
+	MOV     r3.b1, PhState.PinD
 	LSR     r3.b0, r2.b0, 3
 	JAL     (GState.Call_Reg).w2, SET_CLR_BIT
 
 	;  set timer
-	MOV     PhState.T.Pulse, PhState.Delays
+	MOV     PhState.T_Pulse, PhState.Delays
 
 PHASE_DONE:
     ;  Save channel state data
-    SBBO    &PhState.Misc.RateQ, GTask.addr, task_header_size + phasegen_state.Misc.RateQ - phasegen_state.Rate, phasegen_state.Lut - phasegen_state.Misc.RateQ
+    SBBO    &PhState.RateQ, GTask.addr, $sizeof(task_header) + phasegen_state.RateQ - phasegen_state.Rate, phasegen_state.Lut - phasegen_state.RateQ
 
     ;  We're done here...carry on with the next task
     JMP     NEXT_TASK
