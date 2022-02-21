@@ -69,10 +69,7 @@ GTask .sassign r12, task_header
 
     .global __PRU_CREG_PRU_INTC
     .global __PRU_CREG_PRU_CFG
-    .global __PRU_CREG_PRU_DMEM_0_1
-    .global __PRU_CREG_PRU_DMEM_1_0
     .global __PRU_CREG_PRU_IEP
-    .global __PRU_CREG_PRU_SHAREDMEM
     
     .def _c_int00
 

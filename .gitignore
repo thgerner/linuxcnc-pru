@@ -1,3 +1,5 @@
 /**/*.lst
 /**/*.obj
-/pasm/pru_tasks.inc
+/asm/pru_tasks.inc
+/**/*.map
+/**/*.out
