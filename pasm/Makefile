@@ -1,6 +1,6 @@
 ECHO = @echo
 PASM = pasm
-PASM_BINFLAGS := -b -L -d -V2
+PASM_BINFLAGS := -b -L -d -V2 -l
 INSTALL = install
 DESTDIR = /usr/local/lib/linuxcnc/modules
 
