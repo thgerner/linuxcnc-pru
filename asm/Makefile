@@ -27,7 +27,7 @@ LINKER_COMMAND_FILE=./AM335x_PRU.cmd
 CGT_CFLAGS=-v3 -O2 --display_error_number --endian=little --hardware_mac=on -ppd -ppa
 CGT_LFLAGS=--reread_libs --warn_sections 
 
-TARGET=pru_generic-pru1.out
+TARGET=pru_generic-pru1.fw
 MAP=pru_generic-pru1.map
 SOURCES=$(wildcard *.asm)
 OBJECTS=pru_generic.obj pru_stepphase.obj pru_wait.obj pru_stepdir.obj pru_deltasigma.obj pru_pwm.obj pru_encoder.obj

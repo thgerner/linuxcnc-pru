@@ -145,8 +145,11 @@ START:
     XOUT    10, &GState.State_Reg0, 16
     ZERO    &GState.State_Reg0, 16
 
+    ; the linker loads the byte address of the symbol, not the program counter address
     LDI     GState.TaskTable, TASKTABLE                ; Base address of jump tables
+    LSR     GState.TaskTable, GState.TaskTable, 2      ; devide by 4 to get the right program counter
     LDI     GState.PinTable, PINTABLE
+    LSR     GState.PinTable, GState.PinTable, 2
 
     ; Load start of task list from static variables
     LBBO    &GState.Task_Addr, GState.Task_Addr, pru_statics.addr - pru_statics.mode, $sizeof(pru_statics.addr)
@@ -186,7 +189,8 @@ MAINLOOP:
     LBBO    &GState.Task_Status, GTask.addr, task_header.mode - pru_statics.mode, $sizeof(GState.Task_Status)
 
     ; Make sure mode is valid or we could fall off the end of the jump table!
-    QBLT    NEXT_TASK, GTask.mode, TASKTABLEEND - TASKTABLE
+    QBLT    NEXT_TASK, GTask.mode, (TASKTABLEEND - TASKTABLE) / 4 ; the clpru calculates the byte distance,
+                                                                  ; but we need the number of instructions
 
     ; Index into the jump table and call the routine appropriate for our mode
     ADD     r1, GState.TaskTable, GTask.mode
