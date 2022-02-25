@@ -71,8 +71,6 @@ GTask .sassign r12, task_header
     .global __PRU_CREG_PRU_CFG
     .global __PRU_CREG_PRU_IEP
     
-    .def _c_int00
-
     .text
 ;// PRU GPIO Write Timing Details
 ;// The actual write instruction to a GPIO pin using SBBO takes two 
@@ -105,7 +103,7 @@ GTask .sassign r12, task_header
 ;// has not yet been measured.
 
     .text
-_c_int00:
+    .def START
 START:
     FILL    &r0, $sizeof(global_state)
 

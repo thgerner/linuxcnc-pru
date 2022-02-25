@@ -25,7 +25,7 @@ PROJ_NAME=$(CURRENT_DIR)
 LINKER_COMMAND_FILE=./AM335x_PRU.cmd
 
 CGT_CFLAGS=-v3 -O2 --display_error_number --endian=little --hardware_mac=on -ppd -ppa
-CGT_LFLAGS=--reread_libs --warn_sections 
+CGT_LFLAGS=--reread_libs --warn_sections --entry_point=START
 
 TARGET=pru_generic-pru1.fw
 MAP=pru_generic-pru1.map
