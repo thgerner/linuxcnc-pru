@@ -7,7 +7,7 @@
 /*                 the resulting .out file on an AM335x device.             */
 /****************************************************************************/
 
--cr								/* Link using C conventions */
+--entry_point=START
 
 /* Specify the System Memory Map */
 MEMORY
@@ -67,7 +67,7 @@ MEMORY
 SECTIONS {
 	/* Forces _c_int00 to the start of PRU IRAM. Not necessary when loading
 	   an ELF file, but useful when loading a binary */
-	.text:_c_int00*	>  0x0, PAGE 0
+	.text:START*	>  0x0, PAGE 0
 
 	.text		>  PRU_IMEM, PAGE 0
 	.stack		>  PRU_DMEM_0_1, PAGE 1
