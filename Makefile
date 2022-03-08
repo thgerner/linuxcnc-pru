@@ -1,6 +1,6 @@
 TOPTARGETS := all clean install
 
-SUBDIRS := hal pasm
+SUBDIRS := hal asm
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):

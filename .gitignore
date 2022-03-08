@@ -1,0 +1,11 @@
+/**/*.lst
+/**/*.obj
+/asm/pru_tasks.inc
+/**/*.map
+/**/*.out
+/**/*.o
+/**/*.ver
+/**/*.tmp
+/**/*.so
+/**/*.sym
+/**/*.fw

@@ -1,6 +1,6 @@
 ECHO = @echo
 CC = gcc
-CFLAGS = -g -O2 -DRTAPI -I/usr/local/include/linuxcnc -I. -I../pasm
+CFLAGS = -g -O2 -DRTAPI -I/usr/local/include/linuxcnc -I. -I../asm
 LDFLAGS = -L/usr/local/lib -Wl,-rpath,/usr/local/lib
 INSTALL = install
 DESTDIR = /usr/local/lib/linuxcnc/modules

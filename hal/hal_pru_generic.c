@@ -59,18 +59,16 @@
 #include <rtapi_app.h>      /* RTAPI realtime module decls */
 #include <rtapi_math.h>
 #include <hal.h>            /* HAL public API decls */
-#include <pthread.h>
-
-#include <prussdrv.h>           // UIO interface to uio_pruss
-#include <pruss_intc_mapping.h>
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <fcntl.h>
 
 #include "hal_pru_generic.h"
 
@@ -89,9 +87,6 @@ MODULE_LICENSE("GPL");
 // Fixme: This should probably be compiled in, via a header file generated
 //        by pasm -PRUv2 -c myprucode.p
 #define  DEFAULT_CODE  "stepgen.bin"
-
-// The kernel module required to talk to the PRU
-#define UIO_PRUSS  "uio_pruss"
 
 // Default pin to use for PRU modules...use a pin that does not leave the PRU
 #define PRU_DEFAULT_PIN 17
@@ -133,9 +128,6 @@ RTAPI_MP_INT(pru_period, "PRU task period (in nS, default: 10,000 nS or 100 KHz)
 static int disabled = 0;
 RTAPI_MP_INT(disabled, "start the PRU in disabled state for debugging (0=enabled, 1=disabled, default: enabled");
 
-static int event = -1;
-RTAPI_MP_INT(event, "PRU event number to listen for (0..7, default: none)");
-
 /***********************************************************************
 *                   STRUCTURES AND GLOBAL VARIABLES                    *
 ************************************************************************/
@@ -145,16 +137,40 @@ static int comp_id;     /* component ID */
 
 static const char *modname = "hal_pru_generic";
 
-// if filename doesnt exist, prefix this path:
-char *fw_path = "/lib/firmware/pru/";       
+// pru data
+typedef struct {
+    unsigned int        pruss_inst;
+    unsigned int        pruss_data;
+    unsigned int        pruss_ctrl;
+    char                *pruss_dir;
+} pru_data_t;
+
+struct {
+    unsigned int        pruss_address;
+    unsigned int        pruss_len;
+    const pru_data_t    data[2];
+} pruss = {
+    .pruss_address         = 0x4A300000,                // Page 184 am335x TRM
+    .pruss_len             = 0x80000,
+    .data = {
+        {
+            .pruss_inst    = 0x34000,        // Byte addresses, page 20 of PRU Guide
+            .pruss_data    = 0x00000,
+            .pruss_ctrl    = 0x22000,
+            .pruss_dir     = "/sys/class/remoteproc/remoteproc1"
+        },
+        {
+            .pruss_inst    = 0x38000,
+            .pruss_data    = 0x02000,
+            .pruss_ctrl    = 0x24000,
+            .pruss_dir     = "/sys/class/remoteproc/remoteproc2"
+        }
+    }
+};
+     
 
 // shared with PRU
-static unsigned long *pru_data_ram;     // points to PRU data RAM
-static tpruss_intc_initdata pruss_intc_initdata = PRUSS_INTC_INITDATA;
-
-// pruss event processing
-static pthread_t pruss_irq_thread[NUM_PRU_HOSTIRQS];
-typedef void *(*prussdrv_function_handler) (void *);
+static unsigned long *pruss_mmapped_ram;     // points to PRU data RAM
 
 /***********************************************************************
 *                  LOCAL FUNCTION DECLARATIONS                         *
@@ -165,7 +181,6 @@ int export_pru(hal_pru_generic_t *hpg);
 int pru_init(int pru, char *filename, int disabled, hal_pru_generic_t *hpg);
 int setup_pru(int pru, char *filename, int disabled, hal_pru_generic_t *hpg);
 void pru_shutdown(int pru);
-static void *pruevent_thread(void *arg);
 
 int hpg_wait_init(hal_pru_generic_t *hpg);
 void hpg_wait_force_write(hal_pru_generic_t *hpg);
@@ -199,9 +214,6 @@ int rtapi_app_main(void)
     // Clear memory
     memset(hpg, 0, sizeof(hal_pru_generic_t));
 
-    // clear pruss event thread
-    memset(&pruss_irq_thread, 0, sizeof(pruss_irq_thread));
-
     // Initialize PRU and map PRU data memory
     if ((retval = pru_init(pru, prucode, disabled, hpg))) {
         HPG_ERR("ERROR: failed to initialize PRU\n");
@@ -216,7 +228,6 @@ int rtapi_app_main(void)
     hpg->config.comp_id       = comp_id;
     hpg->config.pru_period    = pru_period;
     hpg->config.name          = modname;
-//    hpg->config.name         = "hpg";
 
     // create step class configuration
     if (num_stepgens > 0) {
@@ -286,6 +297,7 @@ int rtapi_app_main(void)
         return -1;
     }
     HPG_INFO("installed\n");
+
     hal_ready(comp_id);
     return 0;
 }
@@ -295,10 +307,6 @@ void rtapi_app_exit(void) {
 
     pru_shutdown(pru);
     hal_exit(comp_id);
-    for (i = 0; i < NUM_PRU_HOSTIRQS; i++) {
-        if (pruss_irq_thread[i])
-            pthread_join(pruss_irq_thread[i], NULL);
-    }
 }
 
 /***********************************************************************
@@ -378,80 +386,109 @@ int export_pru(hal_pru_generic_t *hpg)
     return 0;
 }
 
-
-int assure_module_loaded(const char *module)
+static int pru_stop(int pru)
 {
-    FILE *fd;
-    char line[100];
-    int len = strlen(module);
-    int retval;
-
-    fd = fopen("/proc/modules", "r");
-    if (fd == NULL) {
-        HPG_ERR("ERROR: cannot read /proc/modules\n");
+    // read status of remotproc device and if it is not "offline" stop PRU
+    char status_file_name[PATH_MAX];
+    rtapi_snprintf(status_file_name, sizeof(status_file_name), "%s/state", pruss.data[pru].pruss_dir);
+    int fd = open(status_file_name, O_RDWR | O_SYNC);
+    if (fd == -1) {
+        HPG_ERR("ERROR: could not open PRU state %s\n", status_file_name);
         return -1;
     }
-    while (fgets(line, sizeof(line), fd)) {
-        if (!strncmp(line, module, len)) {
-            HPG_DBG("module '%s' already loaded\n", module);
-            fclose(fd);
-            return 0;
+    char status[32];
+    size_t len = read(fd, status, sizeof(status));
+    if (len == -1) {
+        HPG_ERR("ERROR: could read PRU state %s\n", status_file_name);
+        close(fd);
+        return -1;
+    }
+    int retval = 0;
+    if (strcmp("offline\n", status) != 0) {
+        // pru is not stopped. stop it
+        retval = write(fd, "stop\n", 5);
+        if (retval != 5) {
+            HPG_ERR("ERROR: could not stop PRU %s\n", status_file_name);
+        } else {
+            retval = 0;
         }
     }
-    fclose(fd);
-    HPG_DBG("loading module '%s'\n", module);
-    sprintf(line, "/sbin/modprobe %s", module);
-    if ((retval = system(line))) {
-        HPG_ERR("ERROR: executing '%s'  %d - %s\n", line, errno, strerror(errno));
-        return -1;
-    }
-    return 0;
+    close(fd);
+    
+    return retval;
 }
 
-int pru_init(int pru, char *filename, int disabled, hal_pru_generic_t *hpg) {
-    
-    int i;
-    int retval;
+static int pru_start(int pru)
+{
+    char status_file_name[PATH_MAX];
+    rtapi_snprintf(status_file_name, sizeof(status_file_name), "%s/state", pruss.data[pru].pruss_dir);
+    int fd = open(status_file_name, O_RDWR | O_SYNC);
+    if (fd == -1) {
+        HPG_ERR("ERROR: could not open PRU state %s\n", status_file_name);
+        return -1;
+    }
+    int retval = write(fd, "start\n", 6);
+    close(fd);
+    if (retval != 6) {
+        HPG_ERR("ERROR: could not start PRU %s\n", status_file_name);
+    } else {
+        retval = 0;
+    }
+    return retval;
+}
 
+int pru_init(int pru, char *filename, int disabled, hal_pru_generic_t *hpg) 
+{
     if (pru != 1) {
         HPG_ERR("WARNING: PRU is %d and not 1\n",pru);
     }
+    if (pru < 0 || pru > 1) {
+        HPG_ERR("ERROR: only PRU 0 and PRU 1 possible!\n");
+        return -1;
+    }
 
-    if (geteuid()) {
+    uid_t euid = geteuid();
+    if (euid) {
         HPG_ERR("ERROR: not running as root - need to 'sudo make setuid'?\n");
         return -1;
     }
-    if ((retval = assure_module_loaded(UIO_PRUSS)))
-    return retval;
-
-rtapi_print("prussdrv_init\n");
-    // Allocate and initialize memory
-    prussdrv_init ();
-
-    // opens an event out and initializes memory mapping
-rtapi_print("prussdrv_open\n");
-    if (prussdrv_open(event > -1 ? event : PRU_EVTOUT_0) < 0)
-    return -1;
-
-    // Map PRU's INTC
-rtapi_print("prussdrv_pruintc_init\n");
-    if (prussdrv_pruintc_init(&pruss_intc_initdata) < 0)
-    return -1;
-
-    // Maps the PRU DRAM memory to input pointer
-rtapi_print("prussdrv_map_prumem\n");
-    if (prussdrv_map_prumem(pru ? PRUSS0_PRU1_DATARAM : PRUSS0_PRU0_DATARAM,
-            (void **) &pru_data_ram) < 0)
-    return -1;
-
-rtapi_print("PRU data ram mapped\n");
-    rtapi_print_msg(RTAPI_MSG_DBG, "%s: PRU data ram mapped at %p\n",
-            modname, pru_data_ram);
-
-    hpg->pru_data = (rtapi_u32 *) pru_data_ram;
+    uid_t ruid = getuid();
+    if (setresuid(euid, euid, ruid) == -1) {
+        HPG_ERR("ERROR: setresuid failed\n");
+        return -1;
+    }
+    
+    // make sure the PRU is stopped
+    if (pru_stop(pru) == -1) {
+        return -1;
+    }
+    
+    // map pru data memory via /dev/mem
+    rtapi_print("Mapping PRUSS memory\n");
+    int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    if (fd == -1) {
+        HPG_ERR("ERROR: could not open /dev/mem.\n");
+        return -1;
+    }
+    pruss_mmapped_ram = mmap(0, pruss.pruss_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, pruss.pruss_address);
+    if (pruss_mmapped_ram == MAP_FAILED) {
+        HPG_ERR("ERROR: could not map memory.\n");
+        return -1;
+    }
+    close(fd);
+    // restore permissions
+    if (setresuid(ruid, euid, ruid) == -1) {
+        HPG_ERR("ERROR: restore uid failed\n");
+        return -1;
+    }
+    
+    unsigned long *data_addr = pruss_mmapped_ram + pruss.data[pru].pruss_data / 4;
+    rtapi_print("PRU data ram mapped\n");
+    rtapi_print_msg(RTAPI_MSG_DBG, "%s: PRU data ram mapped at %p\n", modname, data_addr);
+    hpg->pru_data = (rtapi_u32 *) data_addr;
 
     // Zero PRU data memory
-    for (i = 0; i < 8192/4; i++) {
+    for (int i = 0; i < 8192/4; i++) {
         hpg->pru_data[i] = 0;
     }
 
@@ -471,78 +508,36 @@ rtapi_print("PRU data ram mapped\n");
     return 0;
 }
 
-int prus_start_irqthread(unsigned int pru_evtout_num, int priority,
-                             prussdrv_function_handler irqhandler, void *arg)
+int setup_pru(int pru, char *filename, int disabled, hal_pru_generic_t *hpg)
 {
-    pthread_attr_t pthread_attr;
-    struct sched_param sched_param;
-    pthread_attr_init(&pthread_attr);
-    pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_JOINABLE);
-    if (priority != 0) {
-        pthread_attr_setinheritsched(&pthread_attr,
-                                     PTHREAD_EXPLICIT_SCHED);
-        pthread_attr_setschedpolicy(&pthread_attr, SCHED_FIFO);
-        sched_param.sched_priority = priority;
-        pthread_attr_setschedparam(&pthread_attr, &sched_param);
-    }
-
-    pthread_create(&pruss_irq_thread[pru_evtout_num], &pthread_attr,
-                   irqhandler, arg);
-
-    pthread_attr_destroy(&pthread_attr);
-
-    return 0;
-
-}
-
-int setup_pru(int pru, char *filename, int disabled, hal_pru_generic_t *hpg) {
-    
-    int retval;
-
-    if (event > -1) {
-    prus_start_irqthread (event, sched_get_priority_max(SCHED_FIFO) - 2,
-                  pruevent_thread, (void *) event);
-    HPG_ERR("PRU event %d listener started\n",event);
-    }
-
     // Load and execute binary on PRU
-    // search for .bin files as passed in and under fw_path
-    char pru_binpath[PATH_MAX];
-
-    // default the .bin filename if not given
-    if (!strlen(filename))
-    filename = DEFAULT_CODE;
-    
-    strcpy(pru_binpath, filename);
-
-    struct stat statb;
-
-    if (!((stat(pru_binpath, &statb) == 0) &&
-     S_ISREG(statb.st_mode))) {
-
-    // filename not found, prefix fw_path & try that:
-    strcpy(pru_binpath, fw_path);
-    strcat(pru_binpath, filename);
-
-    if (!((stat(pru_binpath, &statb) == 0) &&
-          S_ISREG(statb.st_mode))) {
-        // nyet, complain
-        char *cwd = getcwd(pru_binpath, sizeof(pru_binpath));
-        rtapi_print_msg(RTAPI_MSG_ERR,
-                "%s: cant find %s in %s or %s\n",
-                modname, filename, cwd, fw_path);
-        return -ENOENT;
+    if (!strlen(filename)) {
+        filename = DEFAULT_CODE;
     }
+    // the firmware file is looked up in /lib/firmware by the remoteproc driver
+    // open the remotproc driver
+    char firmware_file_name[PATH_MAX];
+    rtapi_snprintf(firmware_file_name, sizeof(firmware_file_name), "%s/firmware", pruss.data[pru].pruss_dir);
+    int fd = open(firmware_file_name, O_RDWR | O_SYNC);
+    if (fd == -1) {
+        HPG_ERR("ERROR: could not open PRU firmware %s\n", firmware_file_name);
+        return -1;
     }
-    retval =  prussdrv_exec_program (pru, pru_binpath);
-    if (disabled) {
-       prussdrv_pru_disable(pru);
+    int retval = write(fd, filename, strlen(filename));
+    if (retval != strlen(filename)) {
+    	HPG_ERR("ERROR: could not set PRU firmware %s\n", firmware_file_name);
+    } else {
+    	retval = 0;
+        if (!disabled) {
+            retval = pru_start(pru);
+        }
     }
+    close(fd);
     return retval;
 }
 
-void pru_task_add(hal_pru_generic_t *hpg, pru_task_t *task) {
-
+void pru_task_add(hal_pru_generic_t *hpg, pru_task_t *task)
+{
     if (hpg->last_task == 0) {
         // This is the first task
         HPG_DBG("Adding first task: addr=%04x\n", task->addr);
@@ -558,27 +553,14 @@ void pru_task_add(hal_pru_generic_t *hpg, pru_task_t *task) {
     }
 }
 
-static void *pruevent_thread(void *arg)
-{
-    int event = (int) arg;
-    do {
-    if (prussdrv_pru_wait_event(event) < 0)
-        continue;
-    HPG_ERR("PRU event %d received\n",event);
-    prussdrv_pru_clear_event(event, pru ? PRU1_ARM_INTERRUPT : PRU0_ARM_INTERRUPT);
-    } while (1);
-    HPG_ERR("pruevent_thread exiting\n");
-    return NULL; // silence compiler warning
-}
-
 void pru_shutdown(int pru)
 {
-    // Disable PRU and close memory mappings
-    prussdrv_pru_disable(pru);
-    prussdrv_exit (); // also joins event listen thread
+    pru_stop(pru);
+    munmap(pruss_mmapped_ram, pruss.pruss_len);
 }
 
-int hpg_wait_init(hal_pru_generic_t *hpg) {
+int hpg_wait_init(hal_pru_generic_t *hpg)
+{
     char name[HAL_NAME_LEN + 1];
     int r;
 
@@ -595,7 +577,8 @@ int hpg_wait_init(hal_pru_generic_t *hpg) {
     return 0;
 }
 
-void hpg_wait_force_write(hal_pru_generic_t *hpg) {
+void hpg_wait_force_write(hal_pru_generic_t *hpg)
+{
     hpg->wait.pru.task.hdr.mode = eMODE_WAIT;
     hpg->wait.pru.task.hdr.dataX = hpg->hal.param.pru_busy_pin;
     hpg->wait.pru.task.hdr.dataY = 0x00;
