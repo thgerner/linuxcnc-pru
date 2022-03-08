@@ -61,27 +61,15 @@
 
 #include "hal_pru_generic.h"
 
-
+#define MAX_CYCLE 8
 #define f_period_s ((double)(l_period_ns * 1e-9))
 
 /*
  * The step modes 5 till 10 are according to stepgen component from John Kasunich
- * Type 11 is a bipolar half step variant:
- *
- *     State   Phase A   Phase B   Phase C   Phase D
- *     0        0        1         0         1
- *     1        0        0         0         1
- *     2        1        0         0         1
- *     3        1        0         0         0
- *     4        1        0         1         0
- *     5        0        0         1         0
- *     6        0        1         1         0
- *     7        0        1         0         0
- *     0        0        1         0         1
- *
+ * The modes 11 - 14 are not supported
  */
 
-static unsigned char master_lut[][8] = {
+static unsigned char master_lut[][MAX_CYCLE] = {
         {1, 2, 4, 8, 1, 2, 4, 8},    /* 5: Unipolar Full Step 1 */
         {3, 6, 12, 9, 3, 6, 12, 9},  /* 6: Unipoler Full Step 2 */
         {1, 7, 14, 8, 1, 7, 14, 8},  /* 7: Bipolar Full Step 1 */
@@ -889,7 +877,7 @@ static rtapi_u32 create_lut(hpg_stepgen_instance_t *instance)
 
     // phase type. check allowed range, see stepgen from John Kasunich
     hal_u32_t type = instance->hal.param.phase.type - 5;
-    if (type < 0 || type > 6) {
+    if (type < 0 || type > sizeof(master_lut)/sizeof(master_lut[0])) {
         HPG_ERR("stepgen: step_type %d out of range: allowed 5 to 11\n", type);
         type = 1;
         instance->hal.param.phase.type = type + 5;
