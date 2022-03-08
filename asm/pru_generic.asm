@@ -212,11 +212,6 @@ SET_CLR_BIT:
     JMP     r3.w2
 
 PINTABLE:
-    JMP     (GState.Call_Reg).w2
-    JMP     (GState.Call_Reg).w2
-    JMP     (GState.Call_Reg).w2
-    JMP     (GState.Call_Reg).w2
-
     SET     GState.GPIO0_Clr, GState.GPIO0_Clr, (GState.Scratch3).b1
     JMP     (GState.Call_Reg).w2
     SET     GState.GPIO0_Set, GState.GPIO0_Set, (GState.Scratch3).b1
@@ -235,6 +230,11 @@ PINTABLE:
     SET     GState.GPIO3_Clr, GState.GPIO3_Clr, (GState.Scratch3).b1
     JMP     (GState.Call_Reg).w2
     SET     GState.GPIO3_Set, GState.GPIO3_Set, (GState.Scratch3).b1
+    JMP     (GState.Call_Reg).w2
+
+    JMP     (GState.Call_Reg).w2
+    JMP     (GState.Call_Reg).w2
+    JMP     (GState.Call_Reg).w2
     JMP     (GState.Call_Reg).w2
 
     CLR     GState.PRU_Out, GState.PRU_Out,  (GState.Scratch3).b1
