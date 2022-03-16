@@ -156,7 +156,7 @@ typedef struct {
 
     // this is a 48.16 signed fixed-point representation of the current
     // stepgen position (16 bits of sub-step resolution)
-    rtapi_u64 subcounts;
+    rtapi_s64 subcounts;
 
     rtapi_u32 written_steplen;
     rtapi_u32 written_stepspace;
