@@ -50,8 +50,6 @@
 // information, go to www.linuxcnc.org.                                 //
 //----------------------------------------------------------------------//
 
-// Use config_module.h instead of config.h so we can use RTAPI_INC_LIST_H
-#include <config.h>
 
 #include <rtapi.h>
 #include <rtapi_string.h>

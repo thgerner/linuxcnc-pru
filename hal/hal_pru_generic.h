@@ -53,7 +53,6 @@
 #define INT32_MAX (2147483647)
 #define UINT32_MAX (4294967295U)
 
-#include "config.h"
 #include "rtapi_stdint.h"
 #include "rtapi.h"
 #include "hal.h"
