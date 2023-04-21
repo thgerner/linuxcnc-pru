@@ -43,7 +43,7 @@ PRU_SRCS := $(wildcard *.p)
 
 all: pru_tasks.inc $(OBJECTS) $(TARGET)
 
-install: 
+install: $(TARGET)
 	$(INSTALL) -m 0644 -o root -g root -t $(DESTDIR) $<
 
 %.obj: %.asm
