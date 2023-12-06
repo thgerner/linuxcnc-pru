@@ -17,7 +17,7 @@ PRU_CGT=/usr/share/ti/cgt-pru make
 Install the component:
 
 ```
-sudo PRU_CGT=/usr/share/ti/cgt-pru make installed
+sudo PRU_CGT=/usr/share/ti/cgt-pru make install
 ```
 
 The pru code installs to /lib/firmware, the hal component to /usr/lib/linuxcnc/modules
