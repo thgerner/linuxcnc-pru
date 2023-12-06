@@ -48,12 +48,12 @@ install: $(TARGET)
 
 %.obj: %.asm
 	@echo 'Invoking: PRU Compiler'
-	$(PRU_CGT)/bin/clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CGT_CFLAGS) -al -fe $@ $<
+	clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CGT_CFLAGS) -al -fe $@ $<
 
 $(TARGET): $(OBJECTS) $(LINKER_COMMAND_FILE)
 	@echo ''
 	@echo 'Building target: $@'
-	$(PRU_CGT)/bin/clpru $(CGT_CFLAGS) -z -i$(PRU_CGT)/lib -i$(PRU_CGT)/include $(CGT_LFLAGS) -o $(TARGET) $(OBJECTS) -m$(MAP) $(LINKER_COMMAND_FILE)
+	clpru $(CGT_CFLAGS) -z -i$(PRU_CGT)/lib -i$(PRU_CGT)/include $(CGT_LFLAGS) -o $(TARGET) $(OBJECTS) -m$(MAP) $(LINKER_COMMAND_FILE)
 	@echo 'Finished building target: $@'
 
 pru_tasks.inc: pru_tasks.h
