@@ -616,7 +616,7 @@ static hpg_step_class_t parse_step_class(const char *sclass)
 	  default :
 	  	ret_class = eCLASS_NONE;
 	  }
-    if (*sclass == 'e' || *sclass == 'E') return eCLASS_EDGESTEP_DIR;
+
     return ret_class;
 }
 
