@@ -306,7 +306,7 @@ static void update_stepgen(hal_pru_generic_t *hpg, long l_period_ns, int i) {
 
         if (mode == eMODE_STEP_DIR) {
             min_ns_per_step = (s->pru.steplen + s->pru.stepspace) * hpg->config.pru_period;
-        } else if (mode == eMODE_STEP_PHASE) {
+        } else if (mode == eMODE_STEP_PHASE || mode == eMODE_EDGESTEP_DIR) {
             min_ns_per_step = s->pru.steplen * hpg->config.pru_period;
         }
         max_steps_per_s = 1.0e9 / min_ns_per_step;
@@ -575,19 +575,28 @@ static int export_stepdir(hal_pru_generic_t *hpg, int i) {
     char name[HAL_NAME_LEN + 1];
     int r;
 
-    rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.stepspace", hpg->config.name, i);
-    r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.stepspace), hpg->config.comp_id);
-    if (r < 0) {
-        HPG_ERR("Error adding param '%s', aborting\n", name);
-        return r;
+    if (hpg->config.step_class[i] == eCLASS_STEP_DIR) {
+				rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.stepspace", hpg->config.name, i);
+				r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.stepspace), hpg->config.comp_id);
+				if (r < 0) {
+						HPG_ERR("Error adding param '%s', aborting\n", name);
+						return r;
+				}
+
+				rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.stepinvert", hpg->config.name, i);
+				r = hal_param_bit_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.stepinv), hpg->config.comp_id);
+				if (r < 0) {
+						HPG_ERR("Error adding param '%s', aborting\n", name);
+						return r;
+				}
     }
 
-    rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.dirsetup", hpg->config.name, i);
-    r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.dirsetup), hpg->config.comp_id);
-    if (r < 0) {
-        HPG_ERR("Error adding param '%s', aborting\n", name);
-        return r;
-    }
+		rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.dirsetup", hpg->config.name, i);
+		r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.dirsetup), hpg->config.comp_id);
+		if (r < 0) {
+				HPG_ERR("Error adding param '%s', aborting\n", name);
+				return r;
+		}
 
     rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.steppin", hpg->config.name, i);
     r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.steppin), hpg->config.comp_id);
@@ -598,13 +607,6 @@ static int export_stepdir(hal_pru_generic_t *hpg, int i) {
 
     rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.dirpin", hpg->config.name, i);
     r = hal_param_u32_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.dirpin), hpg->config.comp_id);
-    if (r < 0) {
-        HPG_ERR("Error adding param '%s', aborting\n", name);
-        return r;
-    }
-
-    rtapi_snprintf(name, sizeof(name), "%s.stepgen.%02d.stepinvert", hpg->config.name, i);
-    r = hal_param_bit_new(name, HAL_RW, &(hpg->stepgen.instance[i].hal.param.dir.stepinv), hpg->config.comp_id);
     if (r < 0) {
         HPG_ERR("Error adding param '%s', aborting\n", name);
         return r;
@@ -699,6 +701,11 @@ int hpg_stepgen_init(hal_pru_generic_t *hpg){
             hpg->stepgen.instance[i].export_stepclass = export_stepdir;
             hpg->stepgen.instance[i].stepgen_updateclass = hpg_stepdir_update;
             break;
+        case eCLASS_EDGESTEP_DIR :
+        		hpg->stepgen.instance[i].pru.task.hdr.mode = eMODE_EDGESTEP_DIR;
+        		hpg->stepgen.instance[i].export_stepclass = export_stepdir;
+        		hpg->stepgen.instance[i].stepgen_updateclass = hpg_stepdir_update;
+          break;
         case eCLASS_STEP_PHASE :
             hpg->stepgen.instance[i].pru.task.hdr.mode = eMODE_STEP_PHASE;
             hpg->stepgen.instance[i].export_stepclass = export_stepphase;
@@ -785,15 +792,17 @@ static void hpg_stepdir_update(hal_pru_generic_t *hpg, int i, PRU_task_stepgen_t
         instance->written_dirsetup  = instance->hal.param.dir.dirsetup;
     }
 
-    if (instance->hal.param.dir.stepspace != instance->written_stepspace) {
-        instance->pru.stepspace  = ns2periods(hpg, instance->hal.param.dir.stepspace);
-        pru->stepspace  = instance->pru.stepspace;
-        instance->written_stepspace = instance->hal.param.dir.stepspace;
-    }
+    if (hpg->config.step_class[i] == eCLASS_STEP_DIR) {
+				if (instance->hal.param.dir.stepspace != instance->written_stepspace) {
+						instance->pru.stepspace  = ns2periods(hpg, instance->hal.param.dir.stepspace);
+						pru->stepspace  = instance->pru.stepspace;
+						instance->written_stepspace = instance->hal.param.dir.stepspace;
+				}
 
-    if (instance->pru.step.inv != instance->hal.param.dir.stepinv) {
-        instance->pru.step.inv = instance->hal.param.dir.stepinv;
-        pru->step.inv    = instance->pru.step.inv;
+				if (instance->pru.step.inv != instance->hal.param.dir.stepinv) {
+						instance->pru.step.inv = instance->hal.param.dir.stepinv;
+						pru->step.inv    = instance->pru.step.inv;
+				}
     }
 }
 
@@ -842,7 +851,7 @@ void hpg_stepgen_force_write(hal_pru_generic_t *hpg) {
         instance->pru.rate             = 0;
         instance->pru.steplen          = ns2periods(hpg, instance->hal.param.steplen);
         instance->pru.dirhold          = ns2periods(hpg, instance->hal.param.dirhold);
-        if (mode == eMODE_STEP_DIR) {
+        if (mode == eMODE_STEP_DIR || mode == eMODE_EDGESTEP_DIR) {
             instance->pru.task.hdr.dataX = instance->hal.param.dir.steppin;
             instance->pru.task.hdr.dataY = instance->hal.param.dir.dirpin;
             instance->pru.stepspace      = ns2periods(hpg, instance->hal.param.dir.stepspace);
@@ -857,7 +866,6 @@ void hpg_stepgen_force_write(hal_pru_generic_t *hpg) {
             instance->pru.pin.d          = instance->hal.param.phase.pin_d;
             instance->pru.reserved0      = 0;
             instance->pru.lut            = create_lut(instance);
-
         }
         instance->pru.accum          = 0;
         instance->pru.pos            = 0;

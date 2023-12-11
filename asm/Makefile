@@ -30,7 +30,7 @@ CGT_LFLAGS=--reread_libs --warn_sections
 TARGET=pru_generic-pru1.fw
 MAP=pru_generic-pru1.map
 SOURCES=$(wildcard *.asm)
-OBJECTS=pru_generic.obj pru_stepphase.obj pru_wait.obj pru_stepdir.obj pru_deltasigma.obj pru_pwm.obj pru_encoder.obj
+OBJECTS=pru_generic.obj pru_stepphase.obj pru_wait.obj pru_stepdir.obj pru_deltasigma.obj pru_pwm.obj pru_encoder.obj pru_edgestepdir.obj
 
 ECHO = @echo
 INSTALL = install

@@ -104,7 +104,7 @@ RTAPI_MP_INT(num_stepgens, "Number of step generators (default: 0)");
  *   create the step generator of step_class[i]
  */
 static char *step_class[MAX_CHAN];
-RTAPI_MP_ARRAY_STRING(step_class,MAX_CHAN,"Class of step generator, s ... step/dir, 4 ... 4 pin phase");
+RTAPI_MP_ARRAY_STRING(step_class,MAX_CHAN,"Class of step generator, s ... step/dir, 4 ... 4 pin phase, e ... edge step/dir");
 
 static int num_pwmgens = 0;
 RTAPI_MP_INT(num_pwmgens, "Number of PWM outputs (default: 0)");
@@ -236,7 +236,7 @@ int rtapi_app_main(void)
             if (i < MAX_CHAN) {
                 hpg_step_class_t sc = parse_step_class(step_class[i]);
                 if (sc == eCLASS_NONE) {
-                    HPG_ERR("ERROR: unsupported step class %s\n", step_class[i]);
+                    HPG_ERR("ERROR: unsupported step class %c for channel %d\n", step_class[i], i);
                     hal_exit(comp_id);
                 }
                 hpg->config.step_class[i] = sc;
@@ -599,8 +599,24 @@ void hpg_wait_update(hal_pru_generic_t *hpg) {
 
 static hpg_step_class_t parse_step_class(const char *sclass)
 {
-    if(!sclass || !*sclass || *sclass == 's' || *sclass == 'S') return eCLASS_STEP_DIR;
-    if(*sclass == '4') return eCLASS_STEP_PHASE;
-    return eCLASS_NONE;
+	  hpg_step_class_t ret_class;
+	  switch (*sclass) {
+	  case 's' :
+	  case 'S' :
+	  case '\0' :	// default to step/dir
+	  	ret_class = eCLASS_STEP_DIR;
+	  	break;
+	  case '4' :
+	  	ret_class = eCLASS_STEP_PHASE;
+	  	break;
+	  case 'e' :
+	  case 'E' :
+	  	ret_class = eCLASS_EDGESTEP_DIR;
+	  	break;
+	  default :
+	  	ret_class = eCLASS_NONE;
+	  }
+    if (*sclass == 'e' || *sclass == 'E') return eCLASS_EDGESTEP_DIR;
+    return ret_class;
 }
 

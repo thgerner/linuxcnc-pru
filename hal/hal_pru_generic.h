@@ -321,7 +321,7 @@ typedef struct {
     pru_task_t          task;
 } hpg_wait_t;
 
-typedef enum { eCLASS_STEP_DIR, eCLASS_STEP_PHASE, eCLASS_NONE } hpg_step_class_t;
+typedef enum { eCLASS_STEP_DIR, eCLASS_STEP_PHASE, eCLASS_EDGESTEP_DIR, eCLASS_NONE } hpg_step_class_t;
 
 typedef struct _hal_pru_generic_t {
 

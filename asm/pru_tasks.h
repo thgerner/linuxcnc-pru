@@ -75,17 +75,18 @@ PRU_DATA_START: .set 0
 
     // Insure these values match the JUMPTABLE in the pru assembly code!
     typedef enum { 
-        eMODE_INVALID    = -1,
-        eMODE_NONE       = 0,
-        eMODE_WAIT       = 1,
-        eMODE_WRITE      = 2,    // Not implemented yet!
-        eMODE_READ       = 3,    // Not implemented yet!
-        eMODE_STEP_DIR   = 4,
-        eMODE_UP_DOWN    = 5,    // Not implemented yet!
-        eMODE_DELTA_SIG  = 6,
-        eMODE_PWM        = 7,
-        eMODE_ENCODER    = 8,
-        eMODE_STEP_PHASE = 9
+        eMODE_INVALID      = -1,
+        eMODE_NONE         = 0,
+        eMODE_WAIT         = 1,
+        eMODE_WRITE        = 2,    // Not implemented yet!
+        eMODE_READ         = 3,    // Not implemented yet!
+        eMODE_STEP_DIR     = 4,
+        eMODE_UP_DOWN      = 5,    // Not implemented yet!
+        eMODE_DELTA_SIG    = 6,
+        eMODE_PWM          = 7,
+        eMODE_ENCODER      = 8,
+        eMODE_STEP_PHASE   = 9,
+				eMODE_EDGESTEP_DIR = 10
     } pru_task_mode_t;
 #endif
 
