@@ -9,3 +9,6 @@
 /**/*.so
 /**/*.sym
 /**/*.fw
+/.project
+/.cproject
+/.settings/**
