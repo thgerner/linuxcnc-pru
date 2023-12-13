@@ -171,12 +171,18 @@ PRU_DATA_START: .set 0
         Reserved1       .byte
         StepInvert      .byte
     .endstruct
+    
+    stepdir_len   .union
+        Delays          .int 
+        .struct
+            Dly_step_len .short
+            Dly_dir_hold .short
+        .endstruct
+    .endunion
         
     stepdir_state .struct
         Rate            .int
-        Delays          .int ; really a struct of two short, Dly_step_len and Dly_dir_hold, but not accessed as different parts
-                             ; otherwise we would need a union here in order to access the register as a whole and the parts
-                             ; this is necessary because the clpru assembler doesnot transfer MVID to AND as pasm does
+                        .tag stepdir_len
                         .tag stepdir_dly
         Accum           .int
         Pos             .int
@@ -199,7 +205,7 @@ PRU_DATA_START: .set 0
 
     phasegen_state .struct
         Rate            .int
-        Delays          .int ; really a struct of two short, steplen and dirhold, but not accessed as different parts
+                        .tag stepdir_len
                         .tag phasegen_misc
         Accum           .int
         Pos             .int
