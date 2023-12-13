@@ -61,4 +61,4 @@ pru_tasks.inc: pru_tasks.h
 	$(CC) $(CCOPTS) pru_tasks.h | $(SED) -e "s/^#/;/g" -e "s/^\s\+\([a-zA-Z]\)/\1/g" > $@
 
 clean:
-	rm -f *.obj *.lst *.abs *.out
+	rm -f *.obj *.lst *.abs *.out pru_tasks.inc
